@@ -41,3 +41,7 @@ func Init(dbFile string) error {
 	db = database
 	return nil
 }
+
+func Close() error {
+	return db.Close()
+}

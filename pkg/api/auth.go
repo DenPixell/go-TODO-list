@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -26,37 +25,40 @@ func passwordHash(password string) string {
 }
 
 func signInHandler(w http.ResponseWriter, r *http.Request) {
-	var req signInRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, err.Error())
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	pass := os.Getenv("TODO_PASSWORD")
-	if req.Password != pass {
-		writeJson(w, signInResponse{Error: "Неверный пароль"})
+	var req signInRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if req.Password != appPassword {
+		writeJson(w, http.StatusUnauthorized, signInResponse{Error: "Неверный пароль"})
 		return
 	}
 
 	claims := jwt.MapClaims{
-		"hash": passwordHash(pass),
+		"hash": passwordHash(appPassword),
 		"exp":  time.Now().Add(8 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signed, err := token.SignedString([]byte(pass))
+	signed, err := token.SignedString([]byte(appPassword))
 	if err != nil {
-		writeError(w, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJson(w, signInResponse{Token: signed})
+	writeJson(w, http.StatusOK, signInResponse{Token: signed})
 }
 
 func auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pass := os.Getenv("TODO_PASSWORD")
-		if len(pass) > 0 {
+		if len(appPassword) > 0 {
 			var jwtStr string
 			cookie, err := r.Cookie("token")
 			if err == nil {
@@ -65,11 +67,11 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 
 			valid := false
 			token, err := jwt.Parse(jwtStr, func(t *jwt.Token) (any, error) {
-				return []byte(pass), nil
+				return []byte(appPassword), nil
 			})
 			if err == nil && token.Valid {
 				if claims, ok := token.Claims.(jwt.MapClaims); ok {
-					if hash, ok := claims["hash"].(string); ok && hash == passwordHash(pass) {
+					if hash, ok := claims["hash"].(string); ok && hash == passwordHash(appPassword) {
 						valid = true
 					}
 				}

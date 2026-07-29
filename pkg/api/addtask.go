@@ -9,20 +9,6 @@ import (
 	"go-TODO-list/pkg/db"
 )
 
-func writeJson(w http.ResponseWriter, data any) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	resp, err := json.Marshal(data)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.Write(resp)
-}
-
-func writeError(w http.ResponseWriter, errText string) {
-	writeJson(w, map[string]string{"error": errText})
-}
-
 func checkDate(task *db.Task) error {
 	now := time.Now()
 
@@ -56,25 +42,25 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeError(w, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if task.Title == "" {
-		writeError(w, "не указан заголовок задачи")
+		writeError(w, http.StatusBadRequest, "не указан заголовок задачи")
 		return
 	}
 
 	if err := checkDate(&task); err != nil {
-		writeError(w, err.Error())
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	id, err := db.AddTask(&task)
 	if err != nil {
-		writeError(w, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJson(w, map[string]any{"id": strconv.FormatInt(id, 10)})
+	writeJson(w, http.StatusOK, map[string]any{"id": strconv.FormatInt(id, 10)})
 }

@@ -140,6 +140,11 @@ func afterNow(date, now time.Time) bool {
 }
 
 func nextDayHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	nowStr := r.FormValue("now")
 	dateStr := r.FormValue("date")
 	repeat := r.FormValue("repeat")

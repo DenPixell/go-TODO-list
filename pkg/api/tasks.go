@@ -14,6 +14,11 @@ type TasksResp struct {
 }
 
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	search := r.FormValue("search")
 
 	var tasks []*db.Task
@@ -22,7 +27,6 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case search == "":
 		tasks, err = db.Tasks(50)
-
 	default:
 		if t, dateErr := time.Parse(searchDateFormat, search); dateErr == nil {
 			tasks, err = db.TasksByDate(t.Format(dateFormat), 50)
@@ -32,9 +36,9 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		writeError(w, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJson(w, TasksResp{Tasks: tasks})
+	writeJson(w, http.StatusOK, TasksResp{Tasks: tasks})
 }
